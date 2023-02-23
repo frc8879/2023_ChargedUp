@@ -34,10 +34,10 @@ public class Robot extends TimedRobot {
    * Change kBrushed to kBrushless if you are using NEO's.
    * Use the appropriate other class if you are using different controllers.
    */
-  CANSparkMax driveLeftSpark = new CANSparkMax(1, MotorType.kBrushed);
-  CANSparkMax driveRightSpark = new CANSparkMax(2, MotorType.kBrushed);
-  VictorSPX driveLeftVictor = new VictorSPX(3);
-  VictorSPX driveRightVictor = new VictorSPX(4);
+  CANSparkMax driveLeftSpark = new CANSparkMax(1, MotorType.kBrushless);
+  CANSparkMax driveRightSpark = new CANSparkMax(2, MotorType.kBrushless);
+  CANSparkMax driveLeftSpark2 = new CANSparkMax(3, MotorType.kBrushless);
+  CANSparkMax driveRightSpark2 = new CANSparkMax(4, MotorType.kBrushless);
 
   /*
    * Mechanism motor controller instances.
@@ -135,9 +135,10 @@ public class Robot extends TimedRobot {
      * if it is going the wrong way. Repeat for the other 3 motors.
      */
     driveLeftSpark.setInverted(false);
-    driveLeftVictor.setInverted(false);
-    driveRightSpark.setInverted(false);
-    driveRightVictor.setInverted(false);
+    driveLeftSpark2.setInverted(false);
+    driveRightSpark.setInverted(true);
+    driveRightSpark2.setInverted(true);
+    
 
     /*
      * Set the arm and intake to brake mode to help hold position.
@@ -175,9 +176,9 @@ public class Robot extends TimedRobot {
     // see note above in robotInit about commenting these out one by one to set
     // directions.
     driveLeftSpark.set(left);
-    driveLeftVictor.set(ControlMode.PercentOutput, left);
+    driveLeftSpark2.set( left);
     driveRightSpark.set(right);
-    driveRightVictor.set(ControlMode.PercentOutput, right);
+    driveRightSpark2.set( right);
   }
 
   /**
@@ -220,10 +221,6 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousInit() {
-    driveLeftSpark.setIdleMode(IdleMode.kBrake);
-    driveLeftVictor.setNeutralMode(NeutralMode.Brake);
-    driveRightSpark.setIdleMode(IdleMode.kBrake);
-    driveRightVictor.setNeutralMode(NeutralMode.Brake);
 
     m_autoSelected = m_chooser.getSelected();
     System.out.println("Auto selected: " + m_autoSelected);
@@ -281,10 +278,10 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopInit() {
-    driveLeftSpark.setIdleMode(IdleMode.kCoast);
-    driveLeftVictor.setNeutralMode(NeutralMode.Coast);
-    driveRightSpark.setIdleMode(IdleMode.kCoast);
-    driveRightVictor.setNeutralMode(NeutralMode.Coast);
+    //driveLeftSpark.setIdleMode(IdleMode.kCoast);
+    //driveLeftSpark2.setNeutralMode(NeutralMode.Coast);
+    //driveRightSpark.setIdleMode(IdleMode.kCoast);
+    //driveRightSpark2.setNeutralMode(NeutralMode.Coast);
 
     lastGamePiece = NOTHING;
   }
@@ -332,6 +329,6 @@ public class Robot extends TimedRobot {
      * Negative signs here because the values from the analog sticks are backwards
      * from what we want. Forward returns a negative when we want it positive.
      */
-    setDriveMotors(-j.getRawAxis(1), -j.getRawAxis(2));
+    setDriveMotors(-j.getRawAxis(1)*.5, -j.getRawAxis(4)*.5);
   }
 }
