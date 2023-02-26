@@ -4,14 +4,11 @@
 
 package frc.robot;
 
-import com.ctre.phoenix.motorcontrol.ControlMode;
-import com.ctre.phoenix.motorcontrol.NeutralMode;
-import com.ctre.phoenix.motorcontrol.can.VictorSPX;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 
-import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.PS4Controller;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
@@ -61,7 +58,8 @@ public class Robot extends TimedRobot {
    * mode (switch set to X on the bottom) or a different controller
    * that you feel is more comfortable.
    */
-  Joystick j = new Joystick(0);
+  PS4Controller driverPS4 = new PS4Controller(0);
+  PS4Controller coDriverPS4 = new PS4Controller(1);
 
   /*
    * Magic numbers. Use these to adjust settings.
@@ -138,6 +136,11 @@ public class Robot extends TimedRobot {
     driveLeftSpark2.setInverted(false);
     driveRightSpark.setInverted(true);
     driveRightSpark2.setInverted(true);
+
+    driveLeftSpark.setIdleMode(IdleMode.kBrake);
+    driveLeftSpark2.setIdleMode(IdleMode.kBrake);
+    driveRightSpark.setIdleMode(IdleMode.kBrake);
+    driveRightSpark2.setIdleMode(IdleMode.kBrake);
     
 
     /*
@@ -278,21 +281,16 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopInit() {
-    //driveLeftSpark.setIdleMode(IdleMode.kCoast);
-    //driveLeftSpark2.setNeutralMode(NeutralMode.Coast);
-    //driveRightSpark.setIdleMode(IdleMode.kCoast);
-    //driveRightSpark2.setNeutralMode(NeutralMode.Coast);
-
     lastGamePiece = NOTHING;
   }
 
   @Override
   public void teleopPeriodic() {
     double armPower;
-    if (j.getRawButton(7)) {
+    if (coDriverPS4.getRawButton(7)) {
       // lower the arm
       armPower = -ARM_OUTPUT_POWER;
-    } else if (j.getRawButton(5)) {
+    } else if (coDriverPS4.getRawButton(5)) {
       // raise the arm
       armPower = ARM_OUTPUT_POWER;
     } else {
@@ -303,12 +301,12 @@ public class Robot extends TimedRobot {
   
     double intakePower;
     int intakeAmps;
-    if (j.getRawButton(8)) {
+    if (coDriverPS4.getRawButton(8)) {
       // cube in or cone out
       intakePower = INTAKE_OUTPUT_POWER;
       intakeAmps = INTAKE_CURRENT_LIMIT_A;
       lastGamePiece = CUBE;
-    } else if (j.getRawButton(6)) {
+    } else if (coDriverPS4.getRawButton(6)) {
       // cone in or cube out
       intakePower = -INTAKE_OUTPUT_POWER;
       intakeAmps = INTAKE_CURRENT_LIMIT_A;
@@ -329,6 +327,6 @@ public class Robot extends TimedRobot {
      * Negative signs here because the values from the analog sticks are backwards
      * from what we want. Forward returns a negative when we want it positive.
      */
-    setDriveMotors(-j.getRawAxis(1)*.5, -j.getRawAxis(4)*.5);
+    setDriveMotors(-driverPS4.getRawAxis(1)*.5, -driverPS4.getRawAxis(4)*.5);
   }
 }
