@@ -7,6 +7,7 @@ package frc.robot;
 import com.ctre.phoenix.sensors.Pigeon2;
 import com.ctre.phoenix.sensors.WPI_Pigeon2;
 import com.revrobotics.CANSparkMax;
+import com.revrobotics.RelativeEncoder;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 
@@ -95,6 +96,11 @@ public class Robot extends TimedRobot {
   static final double ARM_OUTPUT_POWER = 0.4;
 
   /**
+   * Arm details
+   */
+  double armTargetRotations = 0.0;
+
+  /**
    * How many amps the intake can use while picking up
    */
   static final int INTAKE_CURRENT_LIMIT_A = 25;
@@ -178,10 +184,16 @@ public class Robot extends TimedRobot {
      */
     field = new Field2d();
     gyro = new WPI_Pigeon2(1);
+    gyro.setYaw(0.0);
+    RelativeEncoder leftEncoder = driveLeftSpark.getEncoder();
+    RelativeEncoder rightEncoder = driveRightSpark.getEncoder();
+    leftEncoder.setPosition(0.0);
+    rightEncoder.setPosition(0.0);
     // Gearing is computed as the distance in meters traveled by 1 revolution of the NEO output shaft
     double gearing = 0.05768;
-    driveLeftSpark.getEncoder().setPositionConversionFactor(gearing);
-    driveRightSpark.getEncoder().setPositionConversionFactor(gearing);
+    //double gearing = 1.0;
+    leftEncoder.setPositionConversionFactor(gearing);
+    rightEncoder.setPositionConversionFactor(gearing);
     odometry = new DifferentialDriveOdometry(
       gyro.getRotation2d(), 
       driveLeftSpark.getEncoder().getPosition(),
@@ -200,6 +212,17 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("drive forward power (%)", forward);
     SmartDashboard.putNumber("drive turn power (%)", turn);
 
+    // Add Deadband
+    if(Math.abs(forward) < 0.1){
+      forward=0.0;
+    }
+    if(Math.abs(turn) < 0.1){
+      turn=0.0;
+    }
+
+    forward = Math.copySign(forward * forward, forward);
+    turn = Math.copySign(turn * turn, turn);
+
     /*
      * positive turn = counter clockwise, so the left side goes backwards
      */
@@ -209,6 +232,10 @@ public class Robot extends TimedRobot {
     /*
      * Use the DifferentialDrive to compute chasis speeds
      */
+    if(!highSpeed){
+      left=left*0.5;
+      right=right*0.5;
+    }
     WheelSpeeds wheelSpeeds = DifferentialDrive.curvatureDriveIK(left, right, !highSpeed);
 
     
@@ -218,10 +245,16 @@ public class Robot extends TimedRobot {
 
     // see note above in robotInit about commenting these out one by one to set
     // directions.
-    driveLeftSpark.set(wheelSpeeds.left);
-    driveLeftSpark2.set(wheelSpeeds.left);
-    driveRightSpark.set(wheelSpeeds.right);
-    driveRightSpark2.set(wheelSpeeds.right);
+    //driveLeftSpark.set(wheelSpeeds.left);
+    //driveLeftSpark2.set(wheelSpeeds.left);
+    //driveRightSpark.set(wheelSpeeds.right);
+    //driveRightSpark2.set(wheelSpeeds.right);
+
+    
+    driveLeftSpark.set(left);
+    driveLeftSpark2.set(left);
+    driveRightSpark.set(right);
+    driveRightSpark2.set(right);
   }
 
   /**
@@ -266,6 +299,12 @@ public class Robot extends TimedRobot {
       driveLeftSpark.getEncoder().getPosition(), 
       driveRightSpark.getEncoder().getPosition());
     field.setRobotPose(odometry.getPoseMeters());
+
+    SmartDashboard.putNumber("LeftEncoder", driveLeftSpark.getEncoder().getPosition());
+    SmartDashboard.putNumber("RightEncoder", driveRightSpark.getEncoder().getPosition());
+
+    SmartDashboard.putNumber("x", odometry.getPoseMeters().getX());
+    SmartDashboard.putNumber("y", odometry.getPoseMeters().getX());
   }
 
   double autonomousStartTime;
@@ -335,7 +374,11 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopPeriodic() {
+
+    // TODO identify the Rotations for low, mid, high, positions, etc.
+    // TODO make a member variable for the current target Rotations
     double armPower;
+    // TODO check buttons to set current state of target rotation
     if (coDriverPS4.getRawButton(7)) {
       // lower the arm
       armPower = -ARM_OUTPUT_POWER;
@@ -346,6 +389,7 @@ public class Robot extends TimedRobot {
       // do nothing and let it sit where it is
       armPower = 0.0;
     }
+    // TODO instead of setting the motor, set the PID reference to the armPositionRotation
     setArmMotor(armPower);
   
     double intakePower;
@@ -378,7 +422,7 @@ public class Robot extends TimedRobot {
      */
 
      // Add a high/low gear switch here
-    setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(4), driverPS4.getL1Button());
+    setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
   }
 
 }
