@@ -4,13 +4,22 @@
 
 package frc.robot;
 
+import com.ctre.phoenix.sensors.Pigeon2;
+import com.ctre.phoenix.sensors.WPI_Pigeon2;
 import com.revrobotics.CANSparkMax;
+import com.revrobotics.RelativeEncoder;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
 import edu.wpi.first.wpilibj.PS4Controller;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.drive.DifferentialDrive.WheelSpeeds;
+import edu.wpi.first.wpilibj.interfaces.Gyro;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
@@ -35,6 +44,17 @@ public class Robot extends TimedRobot {
   CANSparkMax driveRightSpark = new CANSparkMax(2, MotorType.kBrushless);
   CANSparkMax driveLeftSpark2 = new CANSparkMax(3, MotorType.kBrushless);
   CANSparkMax driveRightSpark2 = new CANSparkMax(4, MotorType.kBrushless);
+
+  /*
+   * Drivetrain Odometry
+   * Add the following components
+   * DifferentialDriveOdometry - This is used for tracking the robot on the field.
+   * Field2d - This is a dashboard element to view the robot on the field
+   * WPI_Pigeon2 - This is the gyro that lets us know which way the robot is facing
+   */
+  private Field2d field;
+  private WPI_Pigeon2 gyro;
+  private DifferentialDriveOdometry odometry;
 
   /*
    * Mechanism motor controller instances.
@@ -74,6 +94,11 @@ public class Robot extends TimedRobot {
    * Percent output to run the arm up/down at
    */
   static final double ARM_OUTPUT_POWER = 0.4;
+
+  /**
+   * Arm details
+   */
+  double armTargetRotations = 0.0;
 
   /**
    * How many amps the intake can use while picking up
@@ -153,6 +178,26 @@ public class Robot extends TimedRobot {
     arm.setSmartCurrentLimit(ARM_CURRENT_LIMIT_A);
     intake.setInverted(false);
     intake.setIdleMode(IdleMode.kBrake);
+
+    /*
+     * Initialize the Odometry information
+     */
+    field = new Field2d();
+    gyro = new WPI_Pigeon2(1);
+    gyro.setYaw(0.0);
+    RelativeEncoder leftEncoder = driveLeftSpark.getEncoder();
+    RelativeEncoder rightEncoder = driveRightSpark.getEncoder();
+    leftEncoder.setPosition(0.0);
+    rightEncoder.setPosition(0.0);
+    // Gearing is computed as the distance in meters traveled by 1 revolution of the NEO output shaft
+    double gearing = 0.05768;
+    //double gearing = 1.0;
+    leftEncoder.setPositionConversionFactor(gearing);
+    rightEncoder.setPositionConversionFactor(gearing);
+    odometry = new DifferentialDriveOdometry(
+      gyro.getRotation2d(), 
+      driveLeftSpark.getEncoder().getPosition(),
+      driveRightSpark.getEncoder().getPosition());
   }
 
   /**
@@ -163,9 +208,20 @@ public class Robot extends TimedRobot {
    * @param turn    Desired turning speed. Positive is counter clockwise from
    *                above.
    */
-  public void setDriveMotors(double forward, double turn) {
+  public void setDriveMotors(double forward, double turn, boolean highSpeed) {
     SmartDashboard.putNumber("drive forward power (%)", forward);
     SmartDashboard.putNumber("drive turn power (%)", turn);
+
+    // Add Deadband
+    if(Math.abs(forward) < 0.1){
+      forward=0.0;
+    }
+    if(Math.abs(turn) < 0.1){
+      turn=0.0;
+    }
+
+    forward = Math.copySign(forward * forward, forward);
+    turn = Math.copySign(turn * turn, turn);
 
     /*
      * positive turn = counter clockwise, so the left side goes backwards
@@ -173,15 +229,32 @@ public class Robot extends TimedRobot {
     double left = forward - turn;
     double right = forward + turn;
 
-    SmartDashboard.putNumber("drive left power (%)", left);
-    SmartDashboard.putNumber("drive right power (%)", right);
+    /*
+     * Use the DifferentialDrive to compute chasis speeds
+     */
+    if(!highSpeed){
+      left=left*0.5;
+      right=right*0.5;
+    }
+    WheelSpeeds wheelSpeeds = DifferentialDrive.curvatureDriveIK(left, right, !highSpeed);
+
+    
+
+    SmartDashboard.putNumber("drive left power (%)", wheelSpeeds.left);
+    SmartDashboard.putNumber("drive right power (%)", wheelSpeeds.right);
 
     // see note above in robotInit about commenting these out one by one to set
     // directions.
+    //driveLeftSpark.set(wheelSpeeds.left);
+    //driveLeftSpark2.set(wheelSpeeds.left);
+    //driveRightSpark.set(wheelSpeeds.right);
+    //driveRightSpark2.set(wheelSpeeds.right);
+
+    
     driveLeftSpark.set(left);
-    driveLeftSpark2.set( left);
+    driveLeftSpark2.set(left);
     driveRightSpark.set(right);
-    driveRightSpark2.set( right);
+    driveRightSpark2.set(right);
   }
 
   /**
@@ -217,6 +290,21 @@ public class Robot extends TimedRobot {
   @Override
   public void robotPeriodic() {
     SmartDashboard.putNumber("Time (seconds)", Timer.getFPGATimestamp());
+  /**
+    * Update Odometry using information from the Pigeon and the motors
+    * Then push that updated information to the dashboard
+    */
+    odometry.update(
+      gyro.getRotation2d(), 
+      driveLeftSpark.getEncoder().getPosition(), 
+      driveRightSpark.getEncoder().getPosition());
+    field.setRobotPose(odometry.getPoseMeters());
+
+    SmartDashboard.putNumber("LeftEncoder", driveLeftSpark.getEncoder().getPosition());
+    SmartDashboard.putNumber("RightEncoder", driveRightSpark.getEncoder().getPosition());
+
+    SmartDashboard.putNumber("x", odometry.getPoseMeters().getX());
+    SmartDashboard.putNumber("y", odometry.getPoseMeters().getX());
   }
 
   double autonomousStartTime;
@@ -242,7 +330,7 @@ public class Robot extends TimedRobot {
     if (m_autoSelected == kNothingAuto) {
       setArmMotor(0.0);
       setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0);
+      setDriveMotors(0.0, 0.0, false);
       return;
     }
 
@@ -251,23 +339,23 @@ public class Robot extends TimedRobot {
     if (timeElapsed < ARM_EXTEND_TIME_S) {
       setArmMotor(ARM_OUTPUT_POWER);
       setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0);
+      setDriveMotors(0.0, 0.0, false);
     } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S) {
       setArmMotor(0.0);
       setIntakeMotor(autonomousIntakePower, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0);
+      setDriveMotors(0.0, 0.0, false);
     } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S + ARM_EXTEND_TIME_S) {
       setArmMotor(-ARM_OUTPUT_POWER);
       setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0);
+      setDriveMotors(0.0, 0.0, false);
     } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S + ARM_EXTEND_TIME_S + AUTO_DRIVE_TIME) {
       setArmMotor(0.0);
       setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(AUTO_DRIVE_SPEED, 0.0);
+      setDriveMotors(AUTO_DRIVE_SPEED, 0.0, false);
     } else {
       setArmMotor(0.0);
       setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0);
+      setDriveMotors(0.0, 0.0, false);
     }
   }
 
@@ -286,7 +374,11 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopPeriodic() {
+
+    // TODO identify the Rotations for low, mid, high, positions, etc.
+    // TODO make a member variable for the current target Rotations
     double armPower;
+    // TODO check buttons to set current state of target rotation
     if (coDriverPS4.getRawButton(7)) {
       // lower the arm
       armPower = -ARM_OUTPUT_POWER;
@@ -297,6 +389,7 @@ public class Robot extends TimedRobot {
       // do nothing and let it sit where it is
       armPower = 0.0;
     }
+    // TODO instead of setting the motor, set the PID reference to the armPositionRotation
     setArmMotor(armPower);
   
     double intakePower;
@@ -327,6 +420,9 @@ public class Robot extends TimedRobot {
      * Negative signs here because the values from the analog sticks are backwards
      * from what we want. Forward returns a negative when we want it positive.
      */
-    setDriveMotors(-driverPS4.getRawAxis(1)*.5, -driverPS4.getRawAxis(4)*.5);
+
+     // Add a high/low gear switch here
+    setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
   }
+
 }
