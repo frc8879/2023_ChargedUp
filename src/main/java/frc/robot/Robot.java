@@ -422,7 +422,15 @@ public class Robot extends TimedRobot {
      */
 
      // Add a high/low gear switch here
-    setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
+
+     if (driverPS4.getR1Button()) {
+      // breaking
+      // use the pid controller to setReference to hold at current encoder position
+     } else {
+      // driving
+      setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
+     }
+
   }
 
 }
