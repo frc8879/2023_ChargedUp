@@ -4,6 +4,10 @@
 
 package frc.robot;
 
+import javax.swing.text.Position;
+
+import org.opencv.core.RotatedRect;
+
 import com.ctre.phoenix.sensors.Pigeon2;
 import com.ctre.phoenix.sensors.WPI_Pigeon2;
 import com.revrobotics.CANSparkMax;
@@ -11,7 +15,10 @@ import com.revrobotics.RelativeEncoder;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 
+import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
 import edu.wpi.first.wpilibj.PS4Controller;
 import edu.wpi.first.wpilibj.TimedRobot;
@@ -22,6 +29,9 @@ import edu.wpi.first.wpilibj.interfaces.Gyro;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+
+
+
 
 public class Robot extends TimedRobot {
   /*
@@ -70,13 +80,7 @@ public class Robot extends TimedRobot {
   CANSparkMax intake = new CANSparkMax(6, MotorType.kBrushless);
 
   /**
-   * The starter code uses the most generic joystick class.
-   * 
-   * The reveal video was filmed using a logitech gamepad set to
-   * directinput mode (switch set to D on the bottom). You may want
-   * to use the XBoxController class with the gamepad set to XInput
-   * mode (switch set to X on the bottom) or a different controller
-   * that you feel is more comfortable.
+   * The starter code uses the PS4 class.
    */
   PS4Controller driverPS4 = new PS4Controller(0);
   PS4Controller coDriverPS4 = new PS4Controller(1);
@@ -113,12 +117,12 @@ public class Robot extends TimedRobot {
   /**
    * Percent output for intaking
    */
-  static final double INTAKE_OUTPUT_POWER = 1.0;
+  static final double INTAKE_OUTPUT_POWER = 0.5;
 
   /**
    * Percent output for holding
    */
-  static final double INTAKE_HOLD_POWER = 0.07;
+  static final double INTAKE_HOLD_POWER = 0.04;
 
   /**
    * Time to extend or retract arm in auto
@@ -130,12 +134,12 @@ public class Robot extends TimedRobot {
    */
   static final double AUTO_THROW_TIME_S = 0.375;
 
-  /**
+  /*
    * Time to drive back in auto
    */
   static final double AUTO_DRIVE_TIME = 6.0;
 
-  /**
+  /*
    * Speed to drive backwards in auto
    */
   static final double AUTO_DRIVE_SPEED = -0.25;
@@ -149,6 +153,11 @@ public class Robot extends TimedRobot {
     m_chooser.addOption("cone and mobility", kConeAuto);
     m_chooser.addOption("cube and mobility", kCubeAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
+    /**
+   * Uses the CameraServer class to automatically capture video from USB webcam and send it to the FRC dashboard
+   * without doing any vision processing, might change to process image in the future.
+   */
+    CameraServer.startAutomaticCapture();
 
     /*
      * You will need to change some of these from false to true.
@@ -366,6 +375,9 @@ public class Robot extends TimedRobot {
   static final int CUBE = 2;
   static final int NOTHING = 3;
   int lastGamePiece;
+  private Object rotations;
+  private Object lefttarget;
+  private Object righttarget;
 
   @Override
   public void teleopInit() {
@@ -375,32 +387,32 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
 
-    // TODO identify the Rotations for low, mid, high, positions, etc.
-    // TODO make a member variable for the current target Rotations
+    /* TODO identify the Rotations for low, mid, high, positions, etc. */
+    /*  TODO make a member variable for the current target Rotations */
     double armPower;
-    // TODO check buttons to set current state of target rotation
-    if (coDriverPS4.getRawButton(7)) {
-      // lower the arm
+    /*  TODO check buttons to set current state of target rotation */
+    if (coDriverPS4.getL2Button()) {
+      /*  lower the arm*/
       armPower = -ARM_OUTPUT_POWER;
-    } else if (coDriverPS4.getRawButton(5)) {
-      // raise the arm
+    } else if (coDriverPS4.getR2Button()) {
+      /*  raise the arm*/
       armPower = ARM_OUTPUT_POWER;
     } else {
-      // do nothing and let it sit where it is
+      /*  do nothing and let it sit where it is*/
       armPower = 0.0;
     }
-    // TODO instead of setting the motor, set the PID reference to the armPositionRotation
+    /*  TODO instead of setting the motor, set the PID reference to the armPositionRotation */
     setArmMotor(armPower);
   
     double intakePower;
     int intakeAmps;
-    if (coDriverPS4.getRawButton(8)) {
-      // cube in or cone out
+    if (driverPS4.getR2Button()) {
+      /*  cube in or cone out */
       intakePower = INTAKE_OUTPUT_POWER;
       intakeAmps = INTAKE_CURRENT_LIMIT_A;
       lastGamePiece = CUBE;
-    } else if (coDriverPS4.getRawButton(6)) {
-      // cone in or cube out
+    } else if (driverPS4.getL2Button()) {
+      /* cone in or cube out */
       intakePower = -INTAKE_OUTPUT_POWER;
       intakeAmps = INTAKE_CURRENT_LIMIT_A;
       lastGamePiece = CONE;
@@ -411,7 +423,7 @@ public class Robot extends TimedRobot {
       intakePower = -INTAKE_HOLD_POWER;
       intakeAmps = INTAKE_HOLD_CURRENT_LIMIT_A;
     } else {
-      intakePower = 0.0;
+      intakePower = 0.1;
       intakeAmps = 0;
     }
     setIntakeMotor(intakePower, intakeAmps);
@@ -421,16 +433,24 @@ public class Robot extends TimedRobot {
      * from what we want. Forward returns a negative when we want it positive.
      */
 
-     // Add a high/low gear switch here
+      /*Add a high/low gear switch here*/
 
      if (driverPS4.getR1Button()) {
-      // breaking
-      // use the pid controller to setReference to hold at current encoder position
-     } else {
-      // driving
+      /*  breaking*/ 
+      /*  use the pid controller to setReference to hold at current encoder position */
+      
+      lefttarget = driveLeftSpark.getEncoder().getPosition();
+      righttarget = driveRightSpark.getEncoder().getPosition();
+       
+       
+      
+     
+    } else {
+      /*  driving */
       setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
      }
 
-  }
+  
+    }
 
 }
