@@ -12,6 +12,7 @@ import com.ctre.phoenix.sensors.Pigeon2;
 import com.ctre.phoenix.sensors.WPI_Pigeon2;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.SparkMaxPIDController;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 
@@ -54,6 +55,10 @@ public class Robot extends TimedRobot {
   CANSparkMax driveRightSpark = new CANSparkMax(2, MotorType.kBrushless);
   CANSparkMax driveLeftSpark2 = new CANSparkMax(3, MotorType.kBrushless);
   CANSparkMax driveRightSpark2 = new CANSparkMax(4, MotorType.kBrushless);
+
+  // @Hector Get PID controllers from the SparkMax
+  private SparkMaxPIDController leftPIDController;
+  private SparkMaxPIDController rightPIDController;
 
   /*
    * Drivetrain Odometry
@@ -175,6 +180,11 @@ public class Robot extends TimedRobot {
     driveLeftSpark2.setIdleMode(IdleMode.kBrake);
     driveRightSpark.setIdleMode(IdleMode.kBrake);
     driveRightSpark2.setIdleMode(IdleMode.kBrake);
+
+    // @Hector - Set the second sparks on each side to follow the leader.
+    // There is another note below on testing follow
+    driveLeftSpark2.follow(driveLeftSpark);
+    driveRightSpark2.follow(driveRightSpark);
     
 
     /*
@@ -187,6 +197,18 @@ public class Robot extends TimedRobot {
     arm.setSmartCurrentLimit(ARM_CURRENT_LIMIT_A);
     intake.setInverted(false);
     intake.setIdleMode(IdleMode.kBrake);
+
+    /*
+     * @Hector
+     * Instantiate PID controllers and set P gain. This value of P will need to be tuned. See instructions below.
+     */
+    leftPIDController = driveLeftSpark.getPIDController();
+    rightPIDController = driveRightSpark.getPIDController();
+
+    leftPIDController.setP(0.1);
+    rightPIDController.setP(0.1);
+    leftPIDController.setOutputRange(-1.0, 1.0);
+    rightPIDController.setOutputRange(-1.0, 1.0);
 
     /*
      * Initialize the Odometry information
@@ -252,18 +274,15 @@ public class Robot extends TimedRobot {
     SmartDashboard.putNumber("drive left power (%)", wheelSpeeds.left);
     SmartDashboard.putNumber("drive right power (%)", wheelSpeeds.right);
 
-    // see note above in robotInit about commenting these out one by one to set
-    // directions.
-    //driveLeftSpark.set(wheelSpeeds.left);
-    //driveLeftSpark2.set(wheelSpeeds.left);
-    //driveRightSpark.set(wheelSpeeds.right);
-    //driveRightSpark2.set(wheelSpeeds.right);
+    // @Hector TODO: Validate that the spark2 motors are driving as followers. 
+    // To do this, enable in teleop and drive gently forward. All of the motor controllers should blink green.
+    // If only the lead motors are blinking green, uncomment these and comment out the "follow" method above.
+    // Let me know if this isn't working so we can adjust the braking code.
 
-    
     driveLeftSpark.set(left);
-    driveLeftSpark2.set(left);
+    //driveLeftSpark2.set(left);
     driveRightSpark.set(right);
-    driveRightSpark2.set(right);
+    //driveRightSpark2.set(right);
   }
 
   /**
@@ -375,9 +394,8 @@ public class Robot extends TimedRobot {
   static final int CUBE = 2;
   static final int NOTHING = 3;
   int lastGamePiece;
-  private Object rotations;
-  private Object lefttarget;
-  private Object righttarget;
+  private double leftTarget;
+  private double rightTarget;
 
   @Override
   public void teleopInit() {
@@ -433,16 +451,29 @@ public class Robot extends TimedRobot {
      * from what we want. Forward returns a negative when we want it positive.
      */
 
-      /*Add a high/low gear switch here*/
+     /*
+      * @Hector validate that this logic is working.
+      * When the R1 button is first pressed it records the information about where the wheels are loccated.
+      * While the R1 button is held down, the robot will try to stay at those targets.
+      * Test this by putting the robot up on blocks. Press and hold R1.
+      * If the wheels oscillate back and forth, let go of the button and reduce the P gain setting above.
+      * If the wheels jitter a little bit, that's ok. They are not under load and it will behave differently on the ground.
+      * While holding R1, push on the wheels. If it is squishy and lets you roll it, then increase P.
+      * You're looking for the system to allow a small amount of movement and quickly go to pushing harder than you can.
+      */
+
+     // This checks the current position when the button is pressed
+      if (driverPS4.getR1ButtonPressed()) {
+        leftTarget = driveLeftSpark.getEncoder().getPosition();
+        rightTarget = driveRightSpark.getEncoder().getPosition();
+      }
 
      if (driverPS4.getR1Button()) {
       /*  breaking*/ 
       /*  use the pid controller to setReference to hold at current encoder position */
-      
-      lefttarget = driveLeftSpark.getEncoder().getPosition();
-      righttarget = driveRightSpark.getEncoder().getPosition();
-       
-       
+      leftPIDController.setReference(leftTarget, CANSparkMax.ControlType.kPosition);
+      rightPIDController.setReference(rightTarget, CANSparkMax.ControlType.kPosition);
+
       
      
     } else {
