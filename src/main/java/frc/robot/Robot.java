@@ -412,6 +412,11 @@ public class Robot extends TimedRobot {
     /*  TODO make a member variable for the current target Rotations */
     double armPower;
 
+    if (coDriverPS4.getOptionsButtonPressed()) {
+      armManualControl = !armManualControl;
+    }
+    SmartDashboard.putBoolean("Manual Control", armManualControl);
+
     /**
      * Use the Start button to switch between manual control and set
      */
