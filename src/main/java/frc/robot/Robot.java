@@ -4,11 +4,6 @@
 
 package frc.robot;
 
-import javax.swing.text.Position;
-
-import org.opencv.core.RotatedRect;
-
-import com.ctre.phoenix.sensors.Pigeon2;
 import com.ctre.phoenix.sensors.WPI_Pigeon2;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.RelativeEncoder;
@@ -17,19 +12,18 @@ import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 
 import edu.wpi.first.cameraserver.CameraServer;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.PS4Controller;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive.WheelSpeeds;
-import edu.wpi.first.wpilibj.interfaces.Gyro;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.ProfiledPIDCommand;
 
 
 
@@ -83,6 +77,9 @@ public class Robot extends TimedRobot {
    */
   CANSparkMax arm = new CANSparkMax(5, MotorType.kBrushless);
   CANSparkMax intake = new CANSparkMax(6, MotorType.kBrushless);
+  ProfiledPIDController armPIDController;
+  RelativeEncoder armEncoder;
+  boolean armManualControl = true;
 
   /**
    * The starter code uses the PS4 class.
@@ -195,6 +192,12 @@ public class Robot extends TimedRobot {
     arm.setInverted(true);
     arm.setIdleMode(IdleMode.kBrake);
     arm.setSmartCurrentLimit(ARM_CURRENT_LIMIT_A);
+    armEncoder = arm.getEncoder();
+    armEncoder.setPosition(0.0);
+    armEncoder.setPositionConversionFactor(1.0/75.0); // TODO Double check the gear ratio on the motor
+    armPIDController = new ProfiledPIDController(2, 0, 0, new TrapezoidProfile.Constraints(4, 4));
+    armPIDController.setTolerance(0.02);
+
     intake.setInverted(false);
     intake.setIdleMode(IdleMode.kBrake);
 
@@ -408,18 +411,27 @@ public class Robot extends TimedRobot {
     /* TODO identify the Rotations for low, mid, high, positions, etc. */
     /*  TODO make a member variable for the current target Rotations */
     double armPower;
-    /*  TODO check buttons to set current state of target rotation */
-    if (coDriverPS4.getL2Button()) {
-      /*  lower the arm*/
-      armPower = -ARM_OUTPUT_POWER;
-    } else if (coDriverPS4.getR2Button()) {
-      /*  raise the arm*/
-      armPower = ARM_OUTPUT_POWER;
+
+    /**
+     * Use the Start button to switch between manual control and set
+     */
+    if (armManualControl) {
+      if (coDriverPS4.getL2Button()) {
+        /*  lower the arm*/
+        armPower = -ARM_OUTPUT_POWER;
+      } else if (coDriverPS4.getR2Button()) {
+        /*  raise the arm*/
+        armPower = ARM_OUTPUT_POWER;
+      } else {
+        /*  do nothing and let it sit where it is*/
+        armPower = 0.0;
+      }
     } else {
-      /*  do nothing and let it sit where it is*/
-      armPower = 0.0;
+      /*  TODO instead of setting the motor, set the PID reference to the armPositionRotation */
+      armPower = computeArmOutput();
+      // TODO add button mappings for set points
     }
-    /*  TODO instead of setting the motor, set the PID reference to the armPositionRotation */
+
     setArmMotor(armPower);
   
     double intakePower;
@@ -483,5 +495,36 @@ public class Robot extends TimedRobot {
 
   
     }
+
+  private double computeArmOutput() {
+    double output =
+        armPIDController.calculate(armThetaFromNEOEncoder()) + computeArmArbitraryFeedForward();
+    SmartDashboard.putNumber("arm output", output);
+    return output;
+  }
+
+  private double armThetaFromNEOEncoder() {
+    double rawPos = armEncoder.getPosition();
+    double conversion = 1.0; // The encoder gearing is set, so we probably don't need a scalar here
+    double offset = 0.0; // This is the offset from the starting position 
+    SmartDashboard.putNumber("raw NEO Encoder", rawPos);
+    double theta = Math.toRadians(rawPos * (conversion) + offset);
+    SmartDashboard.putNumber("arm theta", theta);
+    return theta;
+  }
+
+  private final double STALLED_TORQUE = 1.3; // This is half the stall torque for the 6377 shoulder which has similar gearing but 2 motors instead of one.
+
+  private double computeArmArbitraryFeedForward() {
+    double theta = armThetaFromNEOEncoder();
+    double centerOfMass = 0.5; // TODO get correct distance to center of mass
+    double mass = 4.03; // TODO get correct mass
+    double gearRatio = 90; // TODO get correct gearing
+    double numMotors = 1;
+    double torque = Math.cos(theta) * 9.81 * mass * centerOfMass;
+    double out = torque / (STALLED_TORQUE * 0.85 * gearRatio * numMotors);
+    SmartDashboard.putNumber("arm arb ffw", out);
+    return out;
+  }
 
 }
