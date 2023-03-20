@@ -26,9 +26,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.ProfiledPIDCommand;
 
-
-
-
 public class Robot extends TimedRobot {
   /*
    * Autonomous selection options.
@@ -469,11 +466,7 @@ public class Robot extends TimedRobot {
       intakePower = INTAKE_OUTPUT_POWER;
       intakeAmps = INTAKE_CURRENT_LIMIT_A;
       lastGamePiece = CUBE;
-    } else if (driverPS4.getL2Button()) {
       /* cone in or cube out */
-      intakePower = -INTAKE_OUTPUT_POWER;
-      intakeAmps = INTAKE_CURRENT_LIMIT_A;
-      lastGamePiece = CONE;
     } else if (lastGamePiece == CUBE) {
       intakePower = INTAKE_HOLD_POWER;
       intakeAmps = INTAKE_HOLD_CURRENT_LIMIT_A;
