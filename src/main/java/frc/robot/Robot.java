@@ -159,7 +159,7 @@ public class Robot extends TimedRobot {
       // Drive in percent output
       driveTrain.setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
       // Drive in velocity
-      //driveTrain.setVelocity(intakePower, intakeAmps, armManualControl);(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
+      //driveTrain.setVelocity(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
    }
   }
 }
