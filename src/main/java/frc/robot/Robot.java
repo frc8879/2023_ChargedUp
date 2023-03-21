@@ -4,314 +4,64 @@
 
 package frc.robot;
 
-import com.ctre.phoenix.sensors.WPI_Pigeon2;
-import com.revrobotics.CANSparkMax;
-import com.revrobotics.RelativeEncoder;
-import com.revrobotics.SparkMaxPIDController;
-import com.revrobotics.CANSparkMax.IdleMode;
-import com.revrobotics.CANSparkMaxLowLevel.MotorType;
-
 import edu.wpi.first.cameraserver.CameraServer;
-import edu.wpi.first.math.controller.ProfiledPIDController;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
-import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.PS4Controller;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.drive.DifferentialDrive;
-import edu.wpi.first.wpilibj.drive.DifferentialDrive.WheelSpeeds;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.ProfiledPIDCommand;
+import frc.robot.autonomous.AutoRoutine;
+import frc.robot.autonomous.SanAntonioAuto;
+import frc.robot.subsystems.ArmMode;
+import frc.robot.subsystems.ArmSubsystem;
+import frc.robot.subsystems.DriveTrain;
+import frc.robot.subsystems.Intake;
 
 public class Robot extends TimedRobot {
   /*
    * Autonomous selection options.
    */
   private static final String kNothingAuto = "do nothing";
-  private static final String kConeAuto = "cone";
+  private static final String sanAntonioAuto = "San Antonio auto";
   private static final String kCubeAuto = "cube";
-  private String m_autoSelected;
-  private final SendableChooser<String> m_chooser = new SendableChooser<>();
+  private String autoSelected;
+  private final SendableChooser<String> autoChooser = new SendableChooser<>();
+  private AutoRoutine autoRoutine;
 
-  /*
-   * Drive motor controller instances.
-   * 
-   * Change the id's to match your robot.
-   * Change kBrushed to kBrushless if you are using NEO's.
-   * Use the appropriate other class if you are using different controllers.
+  /* 
+   * Instantiate the subsystems
    */
-  CANSparkMax driveLeftSpark = new CANSparkMax(1, MotorType.kBrushless);
-  CANSparkMax driveRightSpark = new CANSparkMax(2, MotorType.kBrushless);
-  CANSparkMax driveLeftSpark2 = new CANSparkMax(3, MotorType.kBrushless);
-  CANSparkMax driveRightSpark2 = new CANSparkMax(4, MotorType.kBrushless);
-
-  // @Hector Get PID controllers from the SparkMax
-  private SparkMaxPIDController leftPIDController;
-  private SparkMaxPIDController rightPIDController;
-
-  /*
-   * Drivetrain Odometry
-   * Add the following components
-   * DifferentialDriveOdometry - This is used for tracking the robot on the field.
-   * Field2d - This is a dashboard element to view the robot on the field
-   * WPI_Pigeon2 - This is the gyro that lets us know which way the robot is facing
-   */
+  private final DriveTrain driveTrain = new DriveTrain();
+  private final ArmSubsystem armSubsystem = new ArmSubsystem();
+  private final Intake intake = new Intake();
   private Field2d field;
-  private WPI_Pigeon2 gyro;
-  private DifferentialDriveOdometry odometry;
-
-  /*
-   * Mechanism motor controller instances.
-   * 
-   * Like the drive motors, set the CAN id's to match your robot or use different
-   * motor controller classses (TalonFX, TalonSRX, Spark, VictorSP) to match your
-   * robot.
-   * 
-   * The arm is a NEO on Everybud.
-   * The intake is a NEO 550 on Everybud.
-   */
-  CANSparkMax arm;
-  CANSparkMax intake = new CANSparkMax(6, MotorType.kBrushless);
-  ProfiledPIDController armPIDController;
-  RelativeEncoder armEncoder;
-  boolean armManualControl = true;
 
   /**
-   * The starter code uses the PS4 class.
+   * Instantiate the PS4 Controllers
    */
   PS4Controller driverPS4 = new PS4Controller(0);
   PS4Controller coDriverPS4 = new PS4Controller(1);
-
-  /*
-   * Magic numbers. Use these to adjust settings.
-   */
-
-  /**
-   * How many amps the arm motor can use.
-   */
-  static final int ARM_CURRENT_LIMIT_A = 30;
-
-  /**
-   * Percent output to run the arm up/down at
-   */
-  static final double ARM_OUTPUT_POWER = 0.2;
-
-  /**
-   * Arm details
-   */
-  double armTargetRotations = 0.0;
-
-  /**
-   * How many amps the intake can use while picking up
-   */
-  static final int INTAKE_CURRENT_LIMIT_A = 25;
-
-  /**
-   * How many amps the intake can use while holding
-   */
-  static final int INTAKE_HOLD_CURRENT_LIMIT_A = 5;
-
-  /**
-   * Percent output for intaking
-   */
-  static final double INTAKE_OUTPUT_POWER = 0.6;
-
-  /**
-   * Percent output for holding
-   */
-  static final double INTAKE_HOLD_POWER = 0.04;
-
-  /**
-   * Time to extend or retract arm in auto
-   */
-  static final double ARM_EXTEND_TIME_S = 2.0;
-
-  /**
-   * Time to throw game piece in auto
-   */
-  static final double AUTO_THROW_TIME_S = 0.375;
-
-  /*
-   * Time to drive back in auto
-   */
-  static final double AUTO_DRIVE_TIME = 6.0;
-
-  /*
-   * Speed to drive backwards in auto
-   */
-  static final double AUTO_DRIVE_SPEED = -0.25;
 
   /**
    * This method is run once when the robot is first started up.
    */
   @Override
   public void robotInit() {
-    arm = new CANSparkMax(5, MotorType.kBrushless);
-    m_chooser.setDefaultOption("do nothing", kNothingAuto);
-    m_chooser.addOption("cone and mobility", kConeAuto);
-    m_chooser.addOption("cube and mobility", kCubeAuto);
-    SmartDashboard.putData("Auto choices", m_chooser);
     /**
-   * Uses the CameraServer class to automatically capture video from USB webcam and send it to the FRC dashboard
-   * without doing any vision processing, might change to process image in the future.
-   */
+     * Uses the CameraServer class to automatically capture video from USB webcam and send it to the FRC dashboard
+     * without doing any vision processing, might change to process image in the future.
+     */
     CameraServer.startAutomaticCapture();
-
-    /*
-     * You will need to change some of these from false to true.
-     * 
-     * In the setDriveMotors method, comment out all but 1 of the 4 calls
-     * to the set() methods. Push the joystick forward. Reverse the motor
-     * if it is going the wrong way. Repeat for the other 3 motors.
-     */
-    driveLeftSpark.setInverted(false);
-    driveLeftSpark2.setInverted(false);
-    driveRightSpark.setInverted(true);
-    driveRightSpark2.setInverted(true);
-
-    driveLeftSpark.setIdleMode(IdleMode.kBrake);
-    driveLeftSpark2.setIdleMode(IdleMode.kBrake);
-    driveRightSpark.setIdleMode(IdleMode.kBrake);
-    driveRightSpark2.setIdleMode(IdleMode.kBrake);
-
-    // @Hector - Set the second sparks on each side to follow the leader.
-    // There is another note below on testing follow
-    driveLeftSpark2.follow(driveLeftSpark);
-    driveRightSpark2.follow(driveRightSpark);
-    
-
-    /*
-     * Set the arm and intake to brake mode to help hold position.
-     * If either one is reversed, change that here too. Arm out is defined
-     * as positive, arm in is negative.
-     */
-    arm.setInverted(true);
-    arm.setIdleMode(IdleMode.kBrake);
-    arm.setSmartCurrentLimit(ARM_CURRENT_LIMIT_A);
-    armEncoder = arm.getEncoder();
-    armEncoder.setPosition(0.0);
-    armEncoder.setPositionConversionFactor(1.0/75.0); // TODO Double check the gear ratio on the motor
-    armPIDController = new ProfiledPIDController(2, 0, 0, new TrapezoidProfile.Constraints(4, 4));
-    armPIDController.setTolerance(0.02);
-
-    intake.setInverted(false);
-    intake.setIdleMode(IdleMode.kBrake);
-
-    /*
-     * @Hector
-     * Instantiate PID controllers and set P gain. This value of P will need to be tuned. See instructions below.
-     */
-    leftPIDController = driveLeftSpark.getPIDController();
-    rightPIDController = driveRightSpark.getPIDController();
-
-    leftPIDController.setP(0.5);
-    rightPIDController.setP(0.5);
-    leftPIDController.setOutputRange(-1.0, 1.0);
-    rightPIDController.setOutputRange(-1.0, 1.0);
-
-    /*
-     * Initialize the Odometry information
-     */
     field = new Field2d();
-    gyro = new WPI_Pigeon2(1);
-    gyro.setYaw(0.0);
-    RelativeEncoder leftEncoder = driveLeftSpark.getEncoder();
-    RelativeEncoder rightEncoder = driveRightSpark.getEncoder();
-    leftEncoder.setPosition(0.0);
-    rightEncoder.setPosition(0.0);
-    // Gearing is computed as the distance in meters traveled by 1 revolution of the NEO output shaft
-    double gearing = 0.05768;
-    //double gearing = 1.0;
-    leftEncoder.setPositionConversionFactor(gearing);
-    rightEncoder.setPositionConversionFactor(gearing);
-    odometry = new DifferentialDriveOdometry(
-      gyro.getRotation2d(), 
-      driveLeftSpark.getEncoder().getPosition(),
-      driveRightSpark.getEncoder().getPosition());
-  }
 
-  /**
-   * Calculate and set the power to apply to the left and right
-   * drive motors.
-   * 
-   * @param forward Desired forward speed. Positive is forward.
-   * @param turn    Desired turning speed. Positive is counter clockwise from
-   *                above.
-   */
-  public void setDriveMotors(double forward, double turn, boolean highSpeed) {
-    SmartDashboard.putNumber("drive forward power (%)", forward);
-    SmartDashboard.putNumber("drive turn power (%)", turn);
-
-    // Add Deadband
-    if(Math.abs(forward) < 0.1){
-      forward=0.0;
-    }
-    if(Math.abs(turn) < 0.1){
-      turn=0.0;
-    }
-
-    forward = Math.copySign(forward * forward, forward);
-    turn = Math.copySign(turn * turn, turn);
-
-    /*
-     * positive turn = counter clockwise, so the left side goes backwards
+    /**
+     * Set up the auto routine selector
      */
-    double left = forward - turn;
-    double right = forward + turn;
-
-    /*
-     * Use the DifferentialDrive to compute chasis speeds
-     */
-    if(!highSpeed){
-      left=left*0.5;
-      right=right*0.5;
-    }
-    WheelSpeeds wheelSpeeds = DifferentialDrive.curvatureDriveIK(left, right, !highSpeed);
-
-    
-
-    SmartDashboard.putNumber("drive left power (%)", wheelSpeeds.left);
-    SmartDashboard.putNumber("drive right power (%)", wheelSpeeds.right);
-
-    // @Hector TODO: Validate that the spark2 motors are driving as followers. 
-    // To do this, enable in teleop and drive gently forward. All of the motor controllers should blink green.
-    // If only the lead motors are blinking green, uncomment these and comment out the "follow" method above.
-    // Let me know if this isn't working so we can adjust the braking code.
-
-    driveLeftSpark.set(left);
-    //driveLeftSpark2.set(left);
-    driveRightSpark.set(right);
-    //driveRightSpark2.set(right);
-  }
-
-  /**
-   * Set the arm output power. Positive is out, negative is in.
-   * 
-   * @param percent
-   */
-  public void setArmMotor(double percent) {
-    arm.set(percent);
-    System.out.println(percent);
-    SmartDashboard.putNumber("arm power (%)", percent);
-    SmartDashboard.putNumber("arm motor current (amps)", arm.getOutputCurrent());
-    SmartDashboard.putNumber("arm motor temperature (C)", arm.getMotorTemperature());
-  }
-
-  /**
-   * Set the intake output power.
-   * 
-   * @param percent desired speed
-   * @param amps current limit
-   */
-  public void setIntakeMotor(double percent, int amps) {
-    intake.set(percent);
-    intake.setSmartCurrentLimit(amps);
-    SmartDashboard.putNumber("intake power (%)", percent);
-    SmartDashboard.putNumber("intake motor current (amps)", intake.getOutputCurrent());
-    SmartDashboard.putNumber("intake motor temperature (C)", intake.getMotorTemperature());
+    autoChooser.setDefaultOption("do nothing", kNothingAuto);
+    autoChooser.addOption("SanAntonio", sanAntonioAuto);
+    autoChooser.addOption("cube and mobility", kCubeAuto);
+    SmartDashboard.putData("Auto choices", autoChooser);
   }
 
   /**
@@ -320,170 +70,67 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotPeriodic() {
-    SmartDashboard.putNumber("Time (seconds)", Timer.getFPGATimestamp());
-  /**
-    * Update Odometry using information from the Pigeon and the motors
-    * Then push that updated information to the dashboard
-    */
-    odometry.update(
-      Rotation2d.fromDegrees(0), 
-      driveLeftSpark.getEncoder().getPosition(), 
-      driveRightSpark.getEncoder().getPosition());
-    field.setRobotPose(odometry.getPoseMeters());
-
-    SmartDashboard.putNumber("LeftEncoder", driveLeftSpark.getEncoder().getPosition());
-    SmartDashboard.putNumber("RightEncoder", driveRightSpark.getEncoder().getPosition());
-
-    SmartDashboard.putNumber("x", odometry.getPoseMeters().getX());
-    SmartDashboard.putNumber("y", odometry.getPoseMeters().getX());
+    field.setRobotPose(driveTrain.getPoseMeters());
   }
-
-  double autonomousStartTime;
-  double autonomousIntakePower;
-
-  Timer autoTime = new Timer();
 
   @Override
   public void autonomousInit() {
 
-    m_autoSelected = m_chooser.getSelected();
-    System.out.println("Auto selected: " + m_autoSelected);
+    autoSelected = autoChooser.getSelected();
+    System.out.println("Auto selected: " + autoSelected);
 
-    if (m_autoSelected == kConeAuto) {
-      autonomousIntakePower = INTAKE_OUTPUT_POWER;
-    } else if (m_autoSelected == kCubeAuto) {
-      autonomousIntakePower = -INTAKE_OUTPUT_POWER;
-    }
-
-    autonomousStartTime = Timer.getFPGATimestamp();
-
-    autoTime.reset();
-    autoTime.start();
+    //if (autoSelected == kConeAuto) {
+    //  autonomousIntakePower = Constants.INTAKE_OUTPUT_POWER;
+    //} else if (autoSelected == kCubeAuto) {
+    //  autonomousIntakePower = -Constants.INTAKE_OUTPUT_POWER;
+    //}
+    autoRoutine = new SanAntonioAuto(driveTrain, armSubsystem, intake);
+    autoRoutine.autoInit();
   }
 
   @Override
   public void autonomousPeriodic() {
-    // if (m_autoSelected == kNothingAuto) {
-    //   setArmMotor(0.0);
-    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-    //   setDriveMotors(0.0, 0.0, false);
-    //   return;
-    // }
-
-    // double timeElapsed = Timer.getFPGATimestamp() - autonomousStartTime;
-
-    // if (timeElapsed < ARM_EXTEND_TIME_S) {
-    //   setArmMotor(ARM_OUTPUT_POWER);
-    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-    //   setDriveMotors(0.0, 0.0, false);
-    // } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S) {
-    //   setArmMotor(0.0);
-    //   setIntakeMotor(autonomousIntakePower, INTAKE_CURRENT_LIMIT_A);
-    //   setDriveMotors(0.0, 0.0, false);
-    // } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S + ARM_EXTEND_TIME_S) {
-    //   setArmMotor(-ARM_OUTPUT_POWER);
-    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-    //   setDriveMotors(0.0, 0.0, false);
-    // } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S + ARM_EXTEND_TIME_S + AUTO_DRIVE_TIME) {
-    //   setArmMotor(0.0);
-    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-    //   setDriveMotors(AUTO_DRIVE_SPEED, 0.0, false);
-    // } else {
-    //   setArmMotor(0.0);
-    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-    //   setDriveMotors(0.0, 0.0, false);
-    // }
-
-    if(autoTime.get() < 2){
-      //Shoot 
-      setIntakeMotor(-INTAKE_OUTPUT_POWER, INTAKE_CURRENT_LIMIT_A);
-
-    } else if(autoTime.get() < 8){
-      //Go Backwards
-      setDriveMotors(-0.5, 0.0, false);
-      setIntakeMotor(0, INTAKE_CURRENT_LIMIT_A);
-    } else {
-      setDriveMotors(0, 0, false);
-      setIntakeMotor(0, INTAKE_CURRENT_LIMIT_A);
-
-    }
+    autoRoutine.autoPeriodic();
   }
-
-  /**
-   * Used to remember the last game piece picked up to apply some holding power.
-   */
-  static final int CONE = 1;
-  static final int CUBE = 2;
-
-  static final int NOTHING = 3;
-  int lastGamePiece;
-  private double leftTarget;
-  private double rightTarget;
 
   @Override
   public void teleopInit() {
-    lastGamePiece = NOTHING;
   }
 
   @Override
   public void teleopPeriodic() {
 
-    /* TODO identify the Rotations for low, mid, high, positions, etc. */
-    /*  TODO make a member variable for the current target Rotations */
-    double armPower;
-
     if (coDriverPS4.getOptionsButtonPressed()) {
-      armManualControl = !armManualControl;
+      armSubsystem.toggleArmMode();;
     }
-    SmartDashboard.putBoolean("Manual Control", armManualControl);
 
     /**
      * Use the Start button to switch between manual control and set
      */
-    if (armManualControl) {
+    if (ArmMode.MANUAL == armSubsystem.getArmMode()) {
       if (coDriverPS4.getL2Button()) {
         /*  lower the arm*/
-        armPower = -ARM_OUTPUT_POWER;
+        armSubsystem.lowerArm();;
       } else if (coDriverPS4.getR2Button()) {
         /*  raise the arm*/
-        armPower = ARM_OUTPUT_POWER;
+        armSubsystem.raiseArm();
       } else {
         /*  do nothing and let it sit where it is*/
-        armPower = 0.0;
+        armSubsystem.neutralArm();
       }
     } else {
       /*  TODO instead of setting the motor, set the PID reference to the armPositionRotation */
-      armPower = computeArmOutput();
       // TODO add button mappings for set points
     }
 
-    setArmMotor(armPower);
-  
-    double intakePower;
-    int intakeAmps;
-    if (driverPS4.getR2Button()) {
-      /*  cube in or cone out */
-      intakePower = INTAKE_OUTPUT_POWER;
-      intakeAmps = INTAKE_CURRENT_LIMIT_A;
-      lastGamePiece = CUBE;
-      /* cone in or cube out */
-    } else if (lastGamePiece == CUBE) {
-      intakePower = INTAKE_HOLD_POWER;
-      intakeAmps = INTAKE_HOLD_CURRENT_LIMIT_A;
-    } else if (lastGamePiece == CONE) {
-      intakePower = -INTAKE_HOLD_POWER;
-      intakeAmps = INTAKE_HOLD_CURRENT_LIMIT_A;
-    } else {
-      intakePower = 0.1;
-      intakeAmps = 0;
+    if (driverPS4.getL2Button()) {
+      intake.intakeCube();
     }
-    setIntakeMotor(intakePower, intakeAmps);
-
-
-    /*
-     * Negative signs here because the values from the analog sticks are backwards
-     * from what we want. Forward returns a negative when we want it positive.
-     */
+    else if (driverPS4.getR2Button()) {
+      intake.ejectCube();
+    } else {
+      intake.holdCube();
+    }
 
      /*
       * @Hector validate that this logic is working.
@@ -498,57 +145,21 @@ public class Robot extends TimedRobot {
 
      // This checks the current position when the button is pressed
       if (driverPS4.getR1ButtonPressed()) {
-        leftTarget = driveLeftSpark.getEncoder().getPosition();
-        rightTarget = driveRightSpark.getEncoder().getPosition();
+        driveTrain.setBrake();
       }
 
      if (driverPS4.getR1Button()) {
       /*  breaking*/ 
-      /*  use the pid controller to setReference to hold at current encoder position */
-      leftPIDController.setReference(leftTarget, CANSparkMax.ControlType.kPosition);
-      rightPIDController.setReference(rightTarget, CANSparkMax.ControlType.kPosition);
-
-      
-     
+      driveTrain.brake();
     } else {
       /*  driving */
-      System.out.println(-driverPS4.getRawAxis(1)+"start");
-      System.out.println(-driverPS4.getRawAxis(2));
-      setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
-     }
 
-  
-    }
+      // TODO Test the velocity drive, tune kP and kF in the Constants
 
-  private double computeArmOutput() {
-    double output =
-        armPIDController.calculate(armThetaFromNEOEncoder()) + computeArmArbitraryFeedForward();
-    SmartDashboard.putNumber("arm output", output);
-    return output;
+      // Drive in percent output
+      driveTrain.setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
+      // Drive in velocity
+      //driveTrain.setVelocity(intakePower, intakeAmps, armManualControl);(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
+   }
   }
-
-  private double armThetaFromNEOEncoder() {
-    double rawPos = armEncoder.getPosition();
-    double conversion = 1.0; // The encoder gearing is set, so we probably don't need a scalar here
-    double offset = 0.0; // This is the offset from the starting position 
-    SmartDashboard.putNumber("raw NEO Encoder", rawPos);
-    double theta = Math.toRadians(rawPos * (conversion) + offset);
-    SmartDashboard.putNumber("arm theta", theta);
-    return theta;
-  }
-
-  private final double STALLED_TORQUE = 1.3; // This is half the stall torque for the 6377 shoulder which has similar gearing but 2 motors instead of one.
-
-  private double computeArmArbitraryFeedForward() {
-    double theta = armThetaFromNEOEncoder();
-    double centerOfMass = 0.5; // TODO get correct distance to center of mass
-    double mass = 4.03; // TODO get correct mass
-    double gearRatio = 90; // TODO get correct gearing
-    double numMotors = 1;
-    double torque = Math.cos(theta) * 9.81 * mass * centerOfMass;
-    double out = torque / (STALLED_TORQUE * 0.85 * gearRatio * numMotors);
-    SmartDashboard.putNumber("arm arb ffw", out);
-    return out;
-  }
-
 }
