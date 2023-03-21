@@ -13,6 +13,7 @@ import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.math.controller.ProfiledPIDController;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.PS4Controller;
@@ -24,9 +25,6 @@ import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.ProfiledPIDCommand;
-
-
-
 
 public class Robot extends TimedRobot {
   /*
@@ -75,7 +73,7 @@ public class Robot extends TimedRobot {
    * The arm is a NEO on Everybud.
    * The intake is a NEO 550 on Everybud.
    */
-  CANSparkMax arm = new CANSparkMax(5, MotorType.kBrushless);
+  CANSparkMax arm;
   CANSparkMax intake = new CANSparkMax(6, MotorType.kBrushless);
   ProfiledPIDController armPIDController;
   RelativeEncoder armEncoder;
@@ -94,12 +92,12 @@ public class Robot extends TimedRobot {
   /**
    * How many amps the arm motor can use.
    */
-  static final int ARM_CURRENT_LIMIT_A = 20;
+  static final int ARM_CURRENT_LIMIT_A = 30;
 
   /**
    * Percent output to run the arm up/down at
    */
-  static final double ARM_OUTPUT_POWER = 0.4;
+  static final double ARM_OUTPUT_POWER = 0.2;
 
   /**
    * Arm details
@@ -119,7 +117,7 @@ public class Robot extends TimedRobot {
   /**
    * Percent output for intaking
    */
-  static final double INTAKE_OUTPUT_POWER = 0.5;
+  static final double INTAKE_OUTPUT_POWER = 0.6;
 
   /**
    * Percent output for holding
@@ -151,6 +149,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
+    arm = new CANSparkMax(5, MotorType.kBrushless);
     m_chooser.setDefaultOption("do nothing", kNothingAuto);
     m_chooser.addOption("cone and mobility", kConeAuto);
     m_chooser.addOption("cube and mobility", kCubeAuto);
@@ -208,8 +207,8 @@ public class Robot extends TimedRobot {
     leftPIDController = driveLeftSpark.getPIDController();
     rightPIDController = driveRightSpark.getPIDController();
 
-    leftPIDController.setP(0.1);
-    rightPIDController.setP(0.1);
+    leftPIDController.setP(0.5);
+    rightPIDController.setP(0.5);
     leftPIDController.setOutputRange(-1.0, 1.0);
     rightPIDController.setOutputRange(-1.0, 1.0);
 
@@ -295,13 +294,14 @@ public class Robot extends TimedRobot {
    */
   public void setArmMotor(double percent) {
     arm.set(percent);
+    System.out.println(percent);
     SmartDashboard.putNumber("arm power (%)", percent);
     SmartDashboard.putNumber("arm motor current (amps)", arm.getOutputCurrent());
     SmartDashboard.putNumber("arm motor temperature (C)", arm.getMotorTemperature());
   }
 
   /**
-   * Set the arm output power.
+   * Set the intake output power.
    * 
    * @param percent desired speed
    * @param amps current limit
@@ -326,7 +326,7 @@ public class Robot extends TimedRobot {
     * Then push that updated information to the dashboard
     */
     odometry.update(
-      gyro.getRotation2d(), 
+      Rotation2d.fromDegrees(0), 
       driveLeftSpark.getEncoder().getPosition(), 
       driveRightSpark.getEncoder().getPosition());
     field.setRobotPose(odometry.getPoseMeters());
@@ -341,6 +341,8 @@ public class Robot extends TimedRobot {
   double autonomousStartTime;
   double autonomousIntakePower;
 
+  Timer autoTime = new Timer();
+
   @Override
   public void autonomousInit() {
 
@@ -354,39 +356,56 @@ public class Robot extends TimedRobot {
     }
 
     autonomousStartTime = Timer.getFPGATimestamp();
+
+    autoTime.reset();
+    autoTime.start();
   }
 
   @Override
   public void autonomousPeriodic() {
-    if (m_autoSelected == kNothingAuto) {
-      setArmMotor(0.0);
-      setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0, false);
-      return;
-    }
+    // if (m_autoSelected == kNothingAuto) {
+    //   setArmMotor(0.0);
+    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
+    //   setDriveMotors(0.0, 0.0, false);
+    //   return;
+    // }
 
-    double timeElapsed = Timer.getFPGATimestamp() - autonomousStartTime;
+    // double timeElapsed = Timer.getFPGATimestamp() - autonomousStartTime;
 
-    if (timeElapsed < ARM_EXTEND_TIME_S) {
-      setArmMotor(ARM_OUTPUT_POWER);
-      setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0, false);
-    } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S) {
-      setArmMotor(0.0);
-      setIntakeMotor(autonomousIntakePower, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0, false);
-    } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S + ARM_EXTEND_TIME_S) {
-      setArmMotor(-ARM_OUTPUT_POWER);
-      setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0, false);
-    } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S + ARM_EXTEND_TIME_S + AUTO_DRIVE_TIME) {
-      setArmMotor(0.0);
-      setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(AUTO_DRIVE_SPEED, 0.0, false);
+    // if (timeElapsed < ARM_EXTEND_TIME_S) {
+    //   setArmMotor(ARM_OUTPUT_POWER);
+    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
+    //   setDriveMotors(0.0, 0.0, false);
+    // } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S) {
+    //   setArmMotor(0.0);
+    //   setIntakeMotor(autonomousIntakePower, INTAKE_CURRENT_LIMIT_A);
+    //   setDriveMotors(0.0, 0.0, false);
+    // } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S + ARM_EXTEND_TIME_S) {
+    //   setArmMotor(-ARM_OUTPUT_POWER);
+    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
+    //   setDriveMotors(0.0, 0.0, false);
+    // } else if (timeElapsed < ARM_EXTEND_TIME_S + AUTO_THROW_TIME_S + ARM_EXTEND_TIME_S + AUTO_DRIVE_TIME) {
+    //   setArmMotor(0.0);
+    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
+    //   setDriveMotors(AUTO_DRIVE_SPEED, 0.0, false);
+    // } else {
+    //   setArmMotor(0.0);
+    //   setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
+    //   setDriveMotors(0.0, 0.0, false);
+    // }
+
+    if(autoTime.get() < 2){
+      //Shoot 
+      setIntakeMotor(-INTAKE_OUTPUT_POWER, INTAKE_CURRENT_LIMIT_A);
+
+    } else if(autoTime.get() < 8){
+      //Go Backwards
+      setDriveMotors(-0.5, 0.0, false);
+      setIntakeMotor(0, INTAKE_CURRENT_LIMIT_A);
     } else {
-      setArmMotor(0.0);
-      setIntakeMotor(0.0, INTAKE_CURRENT_LIMIT_A);
-      setDriveMotors(0.0, 0.0, false);
+      setDriveMotors(0, 0, false);
+      setIntakeMotor(0, INTAKE_CURRENT_LIMIT_A);
+
     }
   }
 
@@ -395,6 +414,7 @@ public class Robot extends TimedRobot {
    */
   static final int CONE = 1;
   static final int CUBE = 2;
+
   static final int NOTHING = 3;
   int lastGamePiece;
   private double leftTarget;
@@ -446,11 +466,7 @@ public class Robot extends TimedRobot {
       intakePower = INTAKE_OUTPUT_POWER;
       intakeAmps = INTAKE_CURRENT_LIMIT_A;
       lastGamePiece = CUBE;
-    } else if (driverPS4.getL2Button()) {
       /* cone in or cube out */
-      intakePower = -INTAKE_OUTPUT_POWER;
-      intakeAmps = INTAKE_CURRENT_LIMIT_A;
-      lastGamePiece = CONE;
     } else if (lastGamePiece == CUBE) {
       intakePower = INTAKE_HOLD_POWER;
       intakeAmps = INTAKE_HOLD_CURRENT_LIMIT_A;
@@ -462,6 +478,7 @@ public class Robot extends TimedRobot {
       intakeAmps = 0;
     }
     setIntakeMotor(intakePower, intakeAmps);
+
 
     /*
      * Negative signs here because the values from the analog sticks are backwards
@@ -495,6 +512,8 @@ public class Robot extends TimedRobot {
      
     } else {
       /*  driving */
+      System.out.println(-driverPS4.getRawAxis(1)+"start");
+      System.out.println(-driverPS4.getRawAxis(2));
       setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
      }
 
