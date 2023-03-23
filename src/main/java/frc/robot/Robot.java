@@ -5,12 +5,14 @@
 package frc.robot;
 
 import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.PS4Controller;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard; 
+import edu.wpi.first.wpilibj.GenericHID;
 import frc.robot.autonomous.AutoRoutine;
 import frc.robot.autonomous.SanAntonioAuto;
 import frc.robot.subsystems.ArmMode;
@@ -40,8 +42,8 @@ public class Robot extends TimedRobot {
   /**
    * Instantiate the PS4 Controllers
    */
-  PS4Controller driverPS4 = new PS4Controller(0);
-  PS4Controller coDriverPS4 = new PS4Controller(1);
+  XboxController driverXbox = new XboxController(0);
+  XboxController coDriverXbox = new XboxController(1);
 
   /**
    * This method is run once when the robot is first started up.
@@ -100,7 +102,7 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
 
-    if (coDriverPS4.getOptionsButtonPressed()) {
+    if (coDriverXbox.getStartButton()) {
       armSubsystem.toggleArmMode();;
     }
 
@@ -108,25 +110,27 @@ public class Robot extends TimedRobot {
      * Use the Start button to switch between manual control and set
      */
     if (ArmMode.MANUAL == armSubsystem.getArmMode()) {
-      if (coDriverPS4.getL2Button()) {
+      if (coDriverXbox.getLeftTriggerAxis())
         /*  lower the arm*/
-        armSubsystem.lowerArm();;
-      } else if (coDriverPS4.getR2Button()) {
+        armSubsystem.lowerArm();
+        if (coDriverXbox.getRightTriggerAxis()) {
         /*  raise the arm*/
         armSubsystem.raiseArm();
-      } else {
+      }
+       else {
         /*  do nothing and let it sit where it is*/
         armSubsystem.neutralArm();
       }
-    } else {
+    } 
+    else {
       /*  TODO instead of setting the motor, set the PID reference to the armPositionRotation */
       // TODO add button mappings for set points
     }
 
-    if (driverPS4.getL2Button()) {
+    if (driverXbox.getLeftTriggerAxis()) {
       intake.intakeCube();
     }
-    else if (driverPS4.getR2Button()) {
+    else if (driverXbox.getRightTriggerAxis()) {
       intake.ejectCube();
     } else {
       intake.holdCube();
@@ -144,11 +148,11 @@ public class Robot extends TimedRobot {
       */
 
      // This checks the current position when the button is pressed
-      if (driverPS4.getR1ButtonPressed()) {
+      if (driverXbox.getRightBumper()) {
         driveTrain.setBrake();
       }
 
-     if (driverPS4.getR1Button()) {
+     if (driverXbox.getLeftBumper()) {
       /*  breaking*/ 
       driveTrain.brake();
     } else {
@@ -157,7 +161,7 @@ public class Robot extends TimedRobot {
       // TODO Test the velocity drive, tune kP and kF in the Constants
 
       // Drive in percent output
-      driveTrain.setDriveMotors(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
+      driveTrain.setDriveMotors(-driverXbox.getRawAxis(1), -driverXbox.getRawAxis(2), driverXbox.getLeftBumper());
       // Drive in velocity
       //driveTrain.setVelocity(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
    }
