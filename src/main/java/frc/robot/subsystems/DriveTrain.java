@@ -75,8 +75,8 @@ public class DriveTrain extends SubsystemBase {
 
         leftPIDController.setP(Constants.DRIVETRAIN_KP);
         rightPIDController.setP(Constants.DRIVETRAIN_KP);
-        leftPIDController.setFF(Constants.DRIVETRAIN_KF);
-        rightPIDController.setFF(Constants.DRIVETRAIN_KF);
+        //leftPIDController.setFF(Constants.DRIVETRAIN_KF);
+        //rightPIDController.setFF(Constants.DRIVETRAIN_KF);
         leftPIDController.setOutputRange(Constants.DRIVETRAIN_MIN_OUTPUT, Constants.DRIVETRAIN_MAX_OUTPUT);
         rightPIDController.setOutputRange(Constants.DRIVETRAIN_MIN_OUTPUT, Constants.DRIVETRAIN_MAX_OUTPUT);
 
@@ -111,6 +111,9 @@ public class DriveTrain extends SubsystemBase {
     public void setVelocity(double forward, double turn, boolean highSpeed) {
         SmartDashboard.putNumber("drive forward speed (%)", forward);
         SmartDashboard.putNumber("drive turn speed (%)", turn);
+
+        leftPIDController.setP(Constants.DRIVETRAIN_KP);
+        rightPIDController.setP(Constants.DRIVETRAIN_KP);
 
         // Add Deadband
         if(Math.abs(forward) < 0.1){
@@ -147,7 +150,7 @@ public class DriveTrain extends SubsystemBase {
         // Let me know if this isn't working so we can adjust the braking code.
 
         leftPIDController.setReference(left*Constants.DRIVETRAIN_MAX_RPM_LOAD, CANSparkMax.ControlType.kVelocity);
-rightPIDController.setReference(right*Constants.DRIVETRAIN_MAX_RPM_LOAD, CANSparkMax.ControlType.kVelocity);
+        rightPIDController.setReference(right*Constants.DRIVETRAIN_MAX_RPM_LOAD, CANSparkMax.ControlType.kVelocity);
     }   
 
     /**
@@ -220,6 +223,9 @@ rightPIDController.setReference(right*Constants.DRIVETRAIN_MAX_RPM_LOAD, CANSpar
         SmartDashboard.putNumber("x", odometry.getPoseMeters().getX());
         SmartDashboard.putNumber("y", odometry.getPoseMeters().getX());
 
+        SmartDashboard.putNumber("Pitch", gyro.getPitch());
+        SmartDashboard.putNumber("Roll", gyro.getRoll());
+        SmartDashboard.putNumber("Yaw", gyro.getYaw());
     }
 
     public Pose2d getPoseMeters() {
@@ -229,9 +235,13 @@ rightPIDController.setReference(right*Constants.DRIVETRAIN_MAX_RPM_LOAD, CANSpar
     public void setBrake() {
         leftTarget = driveLeftLead.getEncoder().getPosition();
         rightTarget = driveRightLead.getEncoder().getPosition();
+        SmartDashboard.putNumber("LeftTarget", leftTarget);
+        SmartDashboard.putNumber("RightTarget", rightTarget);
     }
 
     public void brake() {
+        leftPIDController.setP(2.0);
+        rightPIDController.setP(2.0);
         leftPIDController.setReference(leftTarget, CANSparkMax.ControlType.kPosition);
         rightPIDController.setReference(rightTarget, CANSparkMax.ControlType.kPosition);
     }

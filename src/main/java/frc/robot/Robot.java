@@ -6,13 +6,12 @@ package frc.robot;
 
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.wpilibj.XboxController;
-import edu.wpi.first.wpilibj.PS4Controller;
+//import edu.wpi.first.wpilibj.PS4Controller;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard; 
-import edu.wpi.first.wpilibj.GenericHID;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.autonomous.AutoRoutine;
 import frc.robot.autonomous.SanAntonioAuto;
 import frc.robot.subsystems.ArmMode;
@@ -42,8 +41,8 @@ public class Robot extends TimedRobot {
   /**
    * Instantiate the PS4 Controllers
    */
-  XboxController driverXbox = new XboxController(0);
-  XboxController coDriverXbox = new XboxController(1);
+  XboxController driver = new XboxController(0);
+  XboxController coDriver = new XboxController(1);
 
   /**
    * This method is run once when the robot is first started up.
@@ -73,6 +72,10 @@ public class Robot extends TimedRobot {
   @Override
   public void robotPeriodic() {
     field.setRobotPose(driveTrain.getPoseMeters());
+    SmartDashboard.putNumber("Arm Position:", armSubsystem.getPosition());
+
+    armSubsystem.periodic();
+    driveTrain.periodic();
   }
 
   @Override
@@ -102,35 +105,45 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
 
-    if (coDriverXbox.getStartButton()) {
-      armSubsystem.toggleArmMode();;
+    if (coDriver.getStartButtonPressed()) {
+      armSubsystem.toggleArmMode();
     }
 
     /**
      * Use the Start button to switch between manual control and set
      */
     if (ArmMode.MANUAL == armSubsystem.getArmMode()) {
-      if (coDriverXbox.getLeftTriggerAxis())
+      if (coDriver.getLeftTriggerAxis() > 0.5) {
         /*  lower the arm*/
         armSubsystem.lowerArm();
-        if (coDriverXbox.getRightTriggerAxis()) {
+      } else if (coDriver.getRightTriggerAxis() > 0.5) {
         /*  raise the arm*/
         armSubsystem.raiseArm();
-      }
-       else {
+      } else {
         /*  do nothing and let it sit where it is*/
         armSubsystem.neutralArm();
       }
-    } 
-    else {
+    } else {
       /*  TODO instead of setting the motor, set the PID reference to the armPositionRotation */
       // TODO add button mappings for set points
+      if (coDriver.getAButtonPressed()) {
+        armSubsystem.setPosition(-0.32);
+      }
+      if (coDriver.getBButtonPressed()) {
+        armSubsystem.setPosition(-0.27);
+      }
+      if (coDriver.getXButtonPressed()) {
+        armSubsystem.setPosition(-0.111);
+      }
+      if(coDriver.getYButtonPressed()){
+        armSubsystem.setPosition(-0.0);
+      }
     }
 
-    if (driverXbox.getLeftTriggerAxis()) {
+    if (driver.getRightTriggerAxis() > 0.5) {
       intake.intakeCube();
     }
-    else if (driverXbox.getRightTriggerAxis()) {
+    else if (driver.getLeftTriggerAxis() > 0.5) {
       intake.ejectCube();
     } else {
       intake.holdCube();
@@ -148,11 +161,11 @@ public class Robot extends TimedRobot {
       */
 
      // This checks the current position when the button is pressed
-      if (driverXbox.getRightBumper()) {
+      if (driver.getRightBumperPressed()) {
         driveTrain.setBrake();
       }
 
-     if (driverXbox.getLeftBumper()) {
+     if (driver.getRightBumper()) {
       /*  breaking*/ 
       driveTrain.brake();
     } else {
@@ -161,9 +174,9 @@ public class Robot extends TimedRobot {
       // TODO Test the velocity drive, tune kP and kF in the Constants
 
       // Drive in percent output
-      driveTrain.setDriveMotors(-driverXbox.getRawAxis(1), -driverXbox.getRawAxis(2), driverXbox.getLeftBumper());
+      //driveTrain.setDriveMotors(-driver.getRawAxis(1), -driver.getRawAxis(4), driver.getLeftBumper());
       // Drive in velocity
-      //driveTrain.setVelocity(-driverPS4.getRawAxis(1), -driverPS4.getRawAxis(2), driverPS4.getL1Button());
+      driveTrain.setVelocity(-driver.getRawAxis(1), -driver.getRawAxis(4), driver.getLeftBumper());
    }
   }
 }
