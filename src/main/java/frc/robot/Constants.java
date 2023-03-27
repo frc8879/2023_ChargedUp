@@ -30,6 +30,8 @@ public class Constants {
     public static final int ARM_CURRENT_LIMIT_A = 30;
     public static final double ARM_OUTPUT_POWER = 0.2;
 
+    public static final double ARM_POSITION_STOWED = 0.0;
+
     /*
     * Intake constants
     */

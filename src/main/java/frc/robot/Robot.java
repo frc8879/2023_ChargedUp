@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.autonomous.AutoRoutine;
+import frc.robot.autonomous.ChargingStationMobilityBalance;
 import frc.robot.autonomous.SanAntonioAuto;
 import frc.robot.subsystems.ArmMode;
 import frc.robot.subsystems.ArmSubsystem;
@@ -25,7 +26,7 @@ public class Robot extends TimedRobot {
    */
   private static final String kNothingAuto = "do nothing";
   private static final String sanAntonioAuto = "San Antonio auto";
-  private static final String kCubeAuto = "cube";
+  private static final String chargingStationAuto = "Charging Station auto";
   private String autoSelected;
   private final SendableChooser<String> autoChooser = new SendableChooser<>();
   private AutoRoutine autoRoutine;
@@ -61,7 +62,7 @@ public class Robot extends TimedRobot {
      */
     autoChooser.setDefaultOption("do nothing", kNothingAuto);
     autoChooser.addOption("SanAntonio", sanAntonioAuto);
-    autoChooser.addOption("cube and mobility", kCubeAuto);
+    autoChooser.addOption("Charging Station auto", chargingStationAuto);
     SmartDashboard.putData("Auto choices", autoChooser);
   }
 
@@ -89,7 +90,18 @@ public class Robot extends TimedRobot {
     //} else if (autoSelected == kCubeAuto) {
     //  autonomousIntakePower = -Constants.INTAKE_OUTPUT_POWER;
     //}
-    autoRoutine = new SanAntonioAuto(driveTrain, armSubsystem, intake);
+    switch (autoSelected) {
+      case chargingStationAuto: {
+        autoRoutine = new ChargingStationMobilityBalance(driveTrain, armSubsystem, intake);
+      } break;
+      case sanAntonioAuto: {
+        autoRoutine = new SanAntonioAuto(driveTrain, armSubsystem, intake);
+      }
+      default: {
+        autoRoutine = new SanAntonioAuto(driveTrain, armSubsystem, intake);
+      }
+    }
+    
     autoRoutine.autoInit();
   }
 
@@ -136,7 +148,7 @@ public class Robot extends TimedRobot {
         armSubsystem.setPosition(-0.111);
       }
       if(coDriver.getYButtonPressed()){
-        armSubsystem.setPosition(-0.0);
+        armSubsystem.setPosition(Constants.ARM_POSITION_STOWED);
       }
     }
 
