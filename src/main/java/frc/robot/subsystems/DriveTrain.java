@@ -246,4 +246,13 @@ public class DriveTrain extends SubsystemBase {
         rightPIDController.setReference(rightTarget, CANSparkMax.ControlType.kPosition);
     }
 
+    public void resetPosition() {
+        driveLeftLead.getEncoder().setPosition(0.0);
+        driveRightLead.getEncoder().setPosition(0.0);
+    }
+
+    public double getDistance() {
+        return (driveLeftLead.getEncoder().getPosition() + driveRightLead.getEncoder().getPosition()) / 2.0;
+    }
+
 }
