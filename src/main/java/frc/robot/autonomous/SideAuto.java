@@ -8,7 +8,7 @@ import frc.robot.subsystems.ArmSubsystem;
 import frc.robot.subsystems.DriveTrain;
 import frc.robot.subsystems.Intake;
 
-public class ChargingStationMobilityBalance implements AutoRoutine {
+public class SideAuto implements AutoRoutine {
 
     private final DriveTrain driveTrain;
     private final ArmSubsystem arm;
@@ -21,15 +21,12 @@ public class ChargingStationMobilityBalance implements AutoRoutine {
         SHOOT,
         RETRACT,
         MOBILITY,
-        PAUSE,
-        CHARGING_STATION,
-        BALANCE,
         BRAKE
     }
 
     private Action action;
 
-    public ChargingStationMobilityBalance(DriveTrain driveTrain, ArmSubsystem arm, Intake intake) {
+    public SideAuto(DriveTrain driveTrain, ArmSubsystem arm, Intake intake) {
         this.driveTrain = driveTrain;
         this.arm = arm;
         this.intake = intake;
@@ -70,45 +67,15 @@ public class ChargingStationMobilityBalance implements AutoRoutine {
                 if (driveTrain.getDistance() < -4) {
                     driveTrain.setBrake();
                     pauseStart = autoTime.get();
-                    action = Action.PAUSE;
-                }
-            } break;
-            case PAUSE: {
-                driveTrain.brake();
-                if ( (autoTime.get() - pauseStart) > 0.4 ) {
-                    action = Action.CHARGING_STATION;
-                }
-            } break;
-            case CHARGING_STATION: {
-                // drive forward onto the charging station
-                driveTrain.setVelocity(0.8, 0.0, false);
-                // Chargin station is 6' 4 1/8" - Target move is 3' 2"
-                // Approximate revolutions is 17.03
-                if (driveTrain.getDistance() >= -2.0) {
-                    action = Action.BALANCE;
-                
-                }
-            } break;
-            case BALANCE: {
-                // Test some tuning on the distances first, then we can look at using the pigeon to balance.
-                if (driveTrain.getPitch() > 12 ){
-                    driveTrain.setVelocity(0.5, 0.0, false);
-                }
-                else if (driveTrain.getPitch() < -12){
-                    driveTrain.setVelocity(-0.5, 0.0, false);
-                }
-                else {
-
-                 driveTrain.setBrake();
-                action = Action.BRAKE;
+                    action = Action.BRAKE;
                 }
             } break;
             case BRAKE: {
                 driveTrain.brake();
             }
-        }
+
         }
 
     }
     
-
+}

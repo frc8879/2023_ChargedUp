@@ -83,7 +83,7 @@ public class DriveTrain extends SubsystemBase {
         /*
         * Initialize the Odometry information
         */
-        gyro = new WPI_Pigeon2(1);
+        gyro = new WPI_Pigeon2(7);
         gyro.setYaw(0.0);
         RelativeEncoder leftEncoder = driveLeftLead.getEncoder();
         RelativeEncoder rightEncoder = driveRightLead.getEncoder();
@@ -253,6 +253,14 @@ public class DriveTrain extends SubsystemBase {
 
     public double getDistance() {
         return (driveLeftLead.getEncoder().getPosition() + driveRightLead.getEncoder().getPosition()) / 2.0;
+    }
+
+    public double getHeading() {
+        return gyro.getYaw();
+    }
+
+    public double getPitch() {
+        return gyro.getPitch();
     }
 
 }
