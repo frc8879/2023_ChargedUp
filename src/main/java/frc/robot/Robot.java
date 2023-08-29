@@ -6,6 +6,7 @@ package frc.robot;
 
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.interfaces.Gyro;
 //import edu.wpi.first.wpilibj.PS4Controller;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
@@ -14,7 +15,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.autonomous.AutoRoutine;
 import frc.robot.autonomous.ChargingStationMobilityBalance;
-import frc.robot.autonomous.SanAntonioAuto;
+import frc.robot.autonomous.SideAuto;
+import frc.robot.autonomous.SideAutoRotate;
 import frc.robot.subsystems.ArmMode;
 import frc.robot.subsystems.ArmSubsystem;
 import frc.robot.subsystems.DriveTrain;
@@ -24,9 +26,9 @@ public class Robot extends TimedRobot {
   /*
    * Autonomous selection options.
    */
-  private static final String kNothingAuto = "do nothing";
-  private static final String sanAntonioAuto = "San Antonio auto";
   private static final String chargingStationAuto = "Charging Station auto";
+  private static final String sideAuto = "Side Auto";
+  private static final String sideAutoRotate = "Side Auto Rotate";
   private String autoSelected;
   private final SendableChooser<String> autoChooser = new SendableChooser<>();
   private AutoRoutine autoRoutine;
@@ -60,9 +62,9 @@ public class Robot extends TimedRobot {
     /**
      * Set up the auto routine selector
      */
-    autoChooser.setDefaultOption("do nothing", kNothingAuto);
-    autoChooser.addOption("SanAntonio", sanAntonioAuto);
     autoChooser.addOption("Charging Station auto", chargingStationAuto);
+    autoChooser.addOption("Side Auto", sideAuto);
+    autoChooser.addOption("Side Auto Rotate", sideAutoRotate);
     SmartDashboard.putData("Auto choices", autoChooser);
   }
 
@@ -94,12 +96,17 @@ public class Robot extends TimedRobot {
       case chargingStationAuto: {
         autoRoutine = new ChargingStationMobilityBalance(driveTrain, armSubsystem, intake);
       } break;
-      case sanAntonioAuto: {
-        autoRoutine = new SanAntonioAuto(driveTrain, armSubsystem, intake);
+      case sideAuto: {
+        autoRoutine = new SideAuto(driveTrain, armSubsystem, intake);
+      } break;
+      case sideAutoRotate: {
+        System.out.println("Side Auto Rotate");
+        autoRoutine = new SideAutoRotate(driveTrain, armSubsystem, intake);
       }
-      default: {
-        autoRoutine = new SanAntonioAuto(driveTrain, armSubsystem, intake);
-      }
+      //default: {
+        //System.out.println("defaulting");
+        //autoRoutine = new SideAuto(driveTrain, armSubsystem, intake);
+      //}
     }
     
     autoRoutine.autoInit();
@@ -124,20 +131,22 @@ public class Robot extends TimedRobot {
     /**
      * Use the Start button to switch between manual control and set
      */
-    if (ArmMode.MANUAL == armSubsystem.getArmMode()) {
-      if (coDriver.getLeftTriggerAxis() > 0.5) {
-        /*  lower the arm*/
-        armSubsystem.lowerArm();
-      } else if (coDriver.getRightTriggerAxis() > 0.5) {
-        /*  raise the arm*/
-        armSubsystem.raiseArm();
-      } else {
-        /*  do nothing and let it sit where it is*/
-        armSubsystem.neutralArm();
-      }
-    } else {
-      /*  TODO instead of setting the motor, set the PID reference to the armPositionRotation */
-      // TODO add button mappings for set points
+    //if (ArmMode.MANUAL == armSubsystem.getArmMode()) {
+      //if (coDriver.getLeftTriggerAxis() > 0.5) {
+      //  /*  lower the arm*/
+      //  armSubsystem.lowerArm();
+      //} else if (coDriver.getRightTriggerAxis() > 0.5) {
+      //  /*  raise the arm*/
+      //  armSubsystem.raiseArm();
+      //} else {
+      //  /*  do nothing and let it sit where it is*/
+      //  armSubsystem.neutralArm();
+      //}
+    //} else {
+    //}
+      ///*  TODO instead of setting the motor, set the PID reference to the armPositionRotation */
+
+      // Button mappings for target arm set points
       if (coDriver.getAButtonPressed()) {
         armSubsystem.setPosition(-0.32);
       }
@@ -150,9 +159,11 @@ public class Robot extends TimedRobot {
       if(coDriver.getYButtonPressed()){
         armSubsystem.setPosition(Constants.ARM_POSITION_STOWED);
       }
-    }
+    if (intake.getAmps() > (50)){
+      armSubsystem.setPosition(Constants.ARM_POSITION_STOWED);
 
-    if (driver.getRightTriggerAxis() > 0.5) {
+    }
+    else if (driver.getRightTriggerAxis() > 0.5) {
       intake.intakeCube();
     }
     else if (driver.getLeftTriggerAxis() > 0.5) {

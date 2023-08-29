@@ -37,7 +37,9 @@ public class Constants {
     */
     public static final int INTAKE_CURRENT_LIMIT_A = 25;
     public static final int INTAKE_HOLD_CURRENT_LIMIT_A = 5;
-    public static final double INTAKE_OUTPUT_POWER = 0.8;
+    public static final double INTAKE_OUTPUT_POWER = 1.5;
     public static final double INTAKE_HOLD_POWER = 0.04;
+
+    
 
 }

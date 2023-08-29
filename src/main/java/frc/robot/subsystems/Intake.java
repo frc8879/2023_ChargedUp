@@ -33,6 +33,9 @@ public class Intake extends SubsystemBase{
         SmartDashboard.putNumber("intake motor current (amps)", intake.getOutputCurrent());
         SmartDashboard.putNumber("intake motor temperature (C)", intake.getMotorTemperature());
     }
+    public double getAmps() {
+        return intake.getOutputCurrent();
+    }
 
     public void intakeCube() {
         setIntakeMotor(Constants.INTAKE_OUTPUT_POWER, Constants.INTAKE_CURRENT_LIMIT_A);

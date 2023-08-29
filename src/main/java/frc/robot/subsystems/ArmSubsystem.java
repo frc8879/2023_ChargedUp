@@ -19,7 +19,7 @@ public class ArmSubsystem extends SubsystemBase {
     CANSparkMax arm;
     ProfiledPIDController armPIDController;
     RelativeEncoder armEncoder;
-    boolean armManualControl = true;
+    boolean armManualControl = false;
     private ArmMode armMode;
     private SparkMaxPIDController maxPIDController;
 
@@ -43,11 +43,11 @@ public class ArmSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
         SmartDashboard.putNumber("Arm Position:", armEncoder.getPosition());
-        if (armMode == ArmMode.POSITION) {
+        //if (armMode == ArmMode.POSITION) {
             SmartDashboard.putNumber("Arm Target:", target);
             //armPIDController.setGoal(target);
-            maxPIDController.setReference(target, CANSparkMax.ControlType.kPosition);
-        }   
+        maxPIDController.setReference(target, CANSparkMax.ControlType.kPosition);
+        //}   
     }
 
     /**
@@ -62,23 +62,23 @@ public class ArmSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("arm motor temperature (C)", arm.getMotorTemperature());
     }
 
-    public void raiseArm() {
-        this.setArmMotor(Constants.ARM_OUTPUT_POWER);
-    }
+    //public void raiseArm() {
+    //    this.setArmMotor(Constants.ARM_OUTPUT_POWER);
+    //}
 
-    public void lowerArm() {
-        this.setArmMotor(-Constants.ARM_OUTPUT_POWER);
-    }
+    //public void lowerArm() {
+    //    this.setArmMotor(-Constants.ARM_OUTPUT_POWER);
+    //}
 
     public void neutralArm() {
         this.setArmMotor(0.0);
     }
 
-    public void setArmMode(ArmMode armMode) {
-        this.armMode = armMode;
+    //public void setArmMode(ArmMode armMode) {
+    //    this.armMode = armMode;
 
-        SmartDashboard.putString("Arm Control Mode", getArmMode().label);
-    }
+    //    SmartDashboard.putString("Arm Control Mode", getArmMode().label);
+    //}
 
     public void toggleArmMode() {
         if (ArmMode.MANUAL == this.armMode) {
