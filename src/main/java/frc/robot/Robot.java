@@ -15,7 +15,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.autonomous.AutoRoutine;
 import frc.robot.autonomous.ChargingStationMobilityBalance;
-import frc.robot.autonomous.SanAntonioAuto;
 import frc.robot.autonomous.SideAuto;
 import frc.robot.autonomous.SideAutoRotate;
 import frc.robot.subsystems.ArmMode;
@@ -104,9 +103,10 @@ public class Robot extends TimedRobot {
         System.out.println("Side Auto Rotate");
         autoRoutine = new SideAutoRotate(driveTrain, armSubsystem, intake);
       }
-      default: {
-        autoRoutine = new SanAntonioAuto(driveTrain, armSubsystem, intake);
-      }
+      //default: {
+        //System.out.println("defaulting");
+        //autoRoutine = new SideAuto(driveTrain, armSubsystem, intake);
+      //}
     }
     
     autoRoutine.autoInit();

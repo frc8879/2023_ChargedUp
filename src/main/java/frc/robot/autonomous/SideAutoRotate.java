@@ -2,6 +2,8 @@ package frc.robot.autonomous;
 
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.interfaces.Gyro;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.PrintCommand;
 import frc.robot.Constants;
 import frc.robot.subsystems.ArmMode;
@@ -72,7 +74,6 @@ public class SideAutoRotate implements AutoRoutine {
                 // Gearing is 8.45 NEO revolutions for 1 wheel revolution - 1 wheel revolution is 18.85"
                 // This comes out to 86.63 revolutions
                 if (driveTrain.getDistance() < -4) {
-                    //driveTrain.setBrake();
                     pauseStart = autoTime.get();
                     backwardsHeading = driveTrain.getHeading();
                     action = Action.ROTATE;
@@ -84,14 +85,17 @@ public class SideAutoRotate implements AutoRoutine {
                 subcheck = backwardsHeading - 180;
                 // rotate the robot until it is at 180 from the target
                 driveTrain.setDriveMotors(0.0, -0.4, false);
-                if(driveTrain.getHeading()>= sumcheck || driveTrain.getHeading() <= subcheck){
-                    driveTrain.setDriveMotors(0.0, 0.0, false);
+                if(driveTrain.getHeading()>= sumcheck || driveTrain.getHeading()<=subcheck){
+                    //driveTrain.setDriveMotors(0.0, 0.0, false);
+                    driveTrain.setBrake();
                     action = Action.BRAKE;
                 }
+                
             }break;
             case BRAKE: {
                 driveTrain.brake();
-            }break;
+                arm.setPosition(-0.32);
+            }
 
         }
 
